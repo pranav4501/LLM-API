@@ -14,7 +14,7 @@ my_sec = os.environ['EXA_API_KEY']
 exa = Exa(my_sec)
 
 def get_vertex_embeddings(texts, embedding_model):
-  embedding_model = TextEmbeddingModel.from_pretrained("textembedding-gecko@001")
+  # embedding_model = TextEmbeddingModel.from_pretrained("textembedding-gecko@001")
   all_embeddings = []
 
   # Process texts in batches of 20
@@ -25,8 +25,8 @@ def get_vertex_embeddings(texts, embedding_model):
 
   return all_embeddings
 
-def get_answer_from_llm(query, exa, embedding_model, model):
-  query = input()
+def get_answer_from_llm(query, exa, embedding_model, client, model):
+  # query = input()
   
   result = exa.search_and_contents(
     query,
@@ -55,20 +55,13 @@ def get_answer_from_llm(query, exa, embedding_model, model):
   for j in js:
     meta = [{"title":j['title'], "url":j["url"]}]
     splits = text_splitter.create_documents([json.dumps(j['text'])],metadatas=meta)
-    texts+=splits
-  
-  key_loc = "dynamic-sun-429817-b4-9f228c3cdf1c.json"
-  os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_loc
-  
-  vertexai.init(project='dynamic-sun-429817-b4', location="us-central1")
-  
-  
+    texts+=splits  
   
   texts_ind = [text.page_content for text in texts]
-  embeddings = get_vertex_embeddings(texts_ind)
+  embeddings = get_vertex_embeddings(texts_ind, embedding_model)
   print(len(embeddings))
   
-  client = chromadb.Client()
+  # client = chromadb.Client()
   if client.count_collections()>0:
     client.delete_collection("docs")
   collection = client.create_collection(name = "docs")
@@ -89,7 +82,7 @@ def get_answer_from_llm(query, exa, embedding_model, model):
       metadatas=metadata,
   )
   
-  query_embedding = get_vertex_embeddings([query])
+  query_embedding = get_vertex_embeddings([query],embedding_model)
   
   ret = collection.query(query_embeddings=[query_embedding[0]],n_results=5)
   
@@ -101,10 +94,10 @@ def get_answer_from_llm(query, exa, embedding_model, model):
     t['text'] = ret['documents'][0][i] # type: ignore
     context += json.dumps(t)
   
-  model_id = 'gemini-1.5-flash-001'
-  model_id_adv = 'gemini-1.5-pro-001'
-  system_instruction=["You are a personal assistant.","You are given related information from the internet as context use if needed", "cite the source url when using the context"] # type: ignore
-  model = GenerativeModel(model_id_adv, system_instruction=system_instruction)  # type: ignore
+  # model_id = 'gemini-1.5-flash-001'
+  # model_id_adv = 'gemini-1.5-pro-001'
+  # system_instruction=["You are a personal assistant.","You are given related information from the internet as context use if needed", "cite the source url when using the context"] # type: ignore
+  # model = GenerativeModel(model_id_adv, system_instruction=system_instruction)  # type: ignore
   
   print(context)
   
@@ -117,4 +110,27 @@ def get_answer_from_llm(query, exa, embedding_model, model):
   res = chat.send_message(query_c )
   print("\n" + res.text) #type:ignore
 
+  return res.text
 
+
+# my_sec = os.environ['EXA_API_KEY']
+# exa = Exa(my_sec)
+
+
+# key_loc = "dynamic-sun-429817-b4-9f228c3cdf1c.json"
+# os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_loc
+
+# vertexai.init(project='dynamic-sun-429817-b4', location="us-central1")
+
+
+# embedding_model = TextEmbeddingModel.from_pretrained("textembedding-gecko@001")
+
+# client = chromadb.Client()
+
+# model_id = 'gemini-1.5-flash-001'
+# model_id_adv = 'gemini-1.5-pro-001'
+# system_instruction=["You are a personal assistant.","You are given related information from the internet as context use if needed", "cite the source url when using the context"] # type: ignore
+# model = GenerativeModel(model_id_adv, system_instruction=system_instruction)  # type: ignore
+# query = "Did the startup exa ai get funded recently"
+# res = get_answer_from_llm(query, exa, embedding_model, client, model)
+# print(res)
