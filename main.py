@@ -7,6 +7,7 @@ import vertexai
 from exa_py import Exa
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from vertexai.generative_models import ChatSession, GenerativeModel
 from vertexai.language_models import TextEmbeddingModel
@@ -62,10 +63,11 @@ async def search(request: Request):
     body = await request.json()
     print("request body:", body['query'] )
     query = body['query']
-    result = exa.search(
+    result = exa.search_and_contents(
       query,
       type="neural",
-      num_results=5
+      num_results=5,
+        summary=True
     )
     res =  str(result)
     res_li =res.split('\n')
@@ -86,11 +88,23 @@ def read_root():
 def read_item(item_id: int, q: Union[str, None] = None):
     return {"item_id": item_id, "q": q}
 
+# @app.post("/ask")
+# async def answer(request: Request):
+#     body = await request.json()
+#     print("request body:", body['query'] )
+#     query = body['query']
+#     res = get_answer_from_llm(query, exa, embedding_model, client, model)
+#     print(res)
+#     return {"message":"Query Received","json":[{"text":res}]}
+
+
 @app.post("/ask")
 async def answer(request: Request):
     body = await request.json()
-    print("request body:", body['query'] )
     query = body['query']
-    res = get_answer_from_llm(query, exa, embedding_model, client, model)
-    print(res)
-    return {"message":"Query Received","json":[{"text":res}]}
+
+    return StreamingResponse(
+        get_answer_from_llm(query, exa, embedding_model, client, model),
+        media_type="text/event-stream"
+    )
+
